@@ -1,0 +1,251 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Project Sunflower: CFN Stack Set Template To Create a Lambda function accessing a S3 Bucket in onother account  
+
+Metadata:
+  TemplateName: sunflower-stackset.yaml
+  TemplateType: Lambda Function and S3 Bucket in two different accounts.
+  Version: 1.0.0
+  Owner: Subhamay Bhattacharyya
+  ProjectName: Sunflower
+  Modification History:
+    - 1.0.0  - Jul 11, 2023   -- Initial Version 
+  Resources: 
+    - Lambda Function
+    - S3 Bucket
+  StepsToTest: |
+    Manualy verify the Stack.
+  StepsToCleanup: |
+    Stack delete command
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    #################################### Project Name and Environment ##############################
+    - Label: 
+        default: "Project And Environment:"
+      Parameters: 
+      - ProjectName
+      - Environment
+    #################################### AWS Account Id ############################################
+    - Label: 
+        default: "Account-B:"
+      Parameters:
+      - AWSAccountB
+    #################################### Code Repository Bucket ####################################
+    - Label: 
+        default: "Code Repository S3 Bucket:"
+      Parameters: 
+      - CodeRepositoryS3Bucket
+    #################################### KMS Key Ids ###############################################
+    - Label: 
+        default: "KMS Key Aliases and Id:"
+      Parameters: 
+      - KmsMasterKeyAlias
+    #################################### SNS with Email Subscription ###############################
+    - Label: 
+        default: "SNS Configuration:"
+      Parameters: 
+        - SNSTopicBaseName
+        - SNSTopicDisplayName
+    #################################### S3 Bucket #################################################
+    - Label: 
+        default: "S3 Data Bucket:"
+      Parameters:
+      - S3BucketBaseName
+      - S3BucketBlockPublicAcls
+      - S3BucketBlockPublicPolicy
+      - S3BucketIgnorePublicAcls
+      - S3BucketRestrictPublicBuckets
+    #################################### Lambda Function ###########################################
+    - Label: 
+        default: "Lambda Function Configuration: "
+      Parameters: 
+      - LambdaFunctionBaseName
+    ParameterLabels:
+      ################################## Project Name and Environment ##############################
+      ProjectName:
+        default: "Project Name."
+      Environment:
+        default: "Environment Name."
+      AWSAccountB: 
+        default: "Id of AWS Account-B"
+      ################################## Code Repository Bucket ####################################
+      CodeRepositoryS3Bucket:
+        default: "S3 Bucket Name used as code repository."
+      ################################## KMS Key ###################################################
+      KmsMasterKeyAlias: 
+        default: "KMS Master Key Alias in Account-A"
+      ################################## S3 Bucket #################################################
+      S3BucketBaseName:
+        default: "The Base Name of the S3 Data Bucket."
+      S3BucketBlockPublicAcls: 
+        default: "Block Public Acls."
+      S3BucketBlockPublicPolicy:
+        default: "Block Public Policy."
+      S3BucketIgnorePublicAcls:
+        default: "Ignore Public Acls."
+      S3BucketRestrictPublicBuckets:
+        default: "Restrict Public Buckets."
+      ################################## Lambda Function ###########################################
+      LambdaFunctionBaseName:
+        default: "Lambda Function Name."
+Parameters:
+  ###################################### Project Name and Environment ##############################
+  ProjectName:
+    Default: sunflower
+    Description: "The Project Name."
+    Type: String
+    MinLength: 5
+    MaxLength: 30
+    AllowedPattern: "[a-z]*"
+    ConstraintDescription: "The length should be between 5 and 30, must contain only lowercase alphabets."
+  Environment:
+    Default: devl
+    Description: "The Environment Name."
+    Type: String
+    AllowedValues: ["devl", "test", "prod"]
+    ConstraintDescription: "The Environment must be devl / test or prod" 
+  ###################################### Code Repository Bucket ####################################
+  CodeRepositoryS3Bucket:
+    Default: subhamay-projects-repository-us-east-1
+    Description: "S3 Bucket Storing The Lambda Code."
+    Type: String
+    MinLength: 10
+    MaxLength: 40
+    AllowedPattern: "[a-z][a-z0-9-.]*"
+    ConstraintDescription: "The length should be between 3 and 63, must contain only lowercase letter,numbers,dash, dot and should start with a letter."
+  ###################################### AWS Account ###############################################
+  AWSAccountB:
+    Default: 508634243190
+    Type: Number
+    Description: The AWS First account where the S3 bucket will be created.
+  ###################################### SNS Topic #################################################
+  SNSTopicBaseName:
+    Default: "lambda-integration-topic"
+    Description: "The Base Name Of The Sns Topic. The Region And Environment Will Be Added As Suffix By The Template."
+    Type: String
+    MinLength: 10
+    MaxLength: 40
+    AllowedPattern: "[a-z][a-z0-9-]*"
+    ConstraintDescription: "The length should be between 10 and 40, must contain only lowercase letter, number, dash, dot and should start with a letter."
+  SNSTopicDisplayName:
+    Default: "Sns Topic used to integrate the S3 Bucket with Lambda in Account-B"
+    Description: "The SNS Topic Display Name."
+    Type: String
+    MinLength: 30
+    MaxLength: 200
+    AllowedPattern: "[a-zA-Z0-9-. _]*"
+    ConstraintDescription: "The length should be between 30 and 200, must alphanumeric character, space, dot dash or underscore."
+  ###################################### KMS Key ###################################################
+  KmsMasterKeyAlias:
+    Default: "SB-KMS"
+    Description: "The KMS Master Key Alias To Be Used For Server Side Encryption."
+    Type: String
+    MinLength: 5
+    MaxLength: 20
+    AllowedPattern: "[a-zA-Z0-9-]*"
+    ConstraintDescription: "The length of the KMS Key Alias should be beteen 5 and 20 and can only contain lowercase alphanumeric characters and dash."
+  ###################################### S3 Bucket #################################################
+  S3BucketBaseName:
+    Default: "bucket"
+    Description: "The Bucket base name of the S3 Bucket to be used for integration - the region and environment will be added as suffix by the template."
+    Type: String
+    MinLength: 3
+    MaxLength: 40
+    AllowedPattern: "[a-z][a-z0-9-.]*"
+    ConstraintDescription: "The length should be between 3 and 40, must contain only lowercase letter,numbers,dash, dot and should start with a letter."
+  S3BucketBlockPublicAcls:
+    Default: true
+    Description: "Allow Block Public Acls"
+    Type: String
+    AllowedValues: [true, false]
+  S3BucketBlockPublicPolicy:
+    Default: true
+    Description: "Allow Block Public Policy"
+    Type: String
+    AllowedValues: [true, false]
+  S3BucketIgnorePublicAcls:
+    Default: true
+    Description: "Allow Ignore Public Acls"
+    Type: String
+    AllowedValues: [true, false]
+  S3BucketRestrictPublicBuckets:
+    Default: true
+    Description: "Allow Restrict Public Buckets"
+    Type: String
+    AllowedValues: [true, false]
+  ###################################### Lambda Function ###########################################
+  LambdaFunctionBaseName:
+    Default: "processing-lambda"
+    Description: "Processing Lambda function base name."
+    Type: String
+    MinLength: 15
+    MaxLength: 50
+    AllowedPattern: "[a-z-]*"
+    ConstraintDescription: The length should be between 15 and 50, must contain only lowercase letters,numbers and dash(-) and should start with a letter.
+Resources:
+  ###################################### SNS Topic and Subscription ####################################################
+  SunflowerSNSTopic:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/0018-sunflower/cft/nested-stacks/sns-stack.yaml"
+      Parameters:  
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        SNSTopicBaseName: !Ref SNSTopicBaseName
+        SNSTopicDisplayName: !Ref SNSTopicDisplayName 
+        S3BucketBaseName: !Ref S3BucketBaseName
+        KmsMasterKeyAlias: !Ref KmsMasterKeyAlias
+      TimeoutInMinutes: 8
+  ###################################### S3 Bucket######################################################################
+  SunflowerS3Bucket:
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Retain
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub "https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/0018-sunflower/cft/nested-stacks/s3-stack.yaml"
+      Parameters:  
+        ProjectName: !Ref ProjectName
+        Environment: !Ref Environment
+        S3BucketBaseName: !Ref S3BucketBaseName
+        S3BucketBlockPublicAcls: !Ref S3BucketBlockPublicAcls
+        S3BucketBlockPublicPolicy: !Ref S3BucketBlockPublicPolicy 
+        S3BucketIgnorePublicAcls: !Ref S3BucketIgnorePublicAcls
+        S3BucketRestrictPublicBuckets: !Ref S3BucketRestrictPublicBuckets
+        SNSTopicArn: !GetAtt SunflowerSNSTopic.Outputs.SNSTopicArn
+        KmsMasterKeyAlias: !Ref KmsMasterKeyAlias
+      TimeoutInMinutes: 8
+  ###################################### Lambda Function ###############################################################
+  SunflowerLambdaAWSAccountB:
+    DependsOn:
+      - SunflowerSNSTopic
+    Type: AWS::CloudFormation::StackSet
+    Properties:
+      StackSetName: !Ref AWS::StackName
+      Description: "StackSet to Create SNS, S3 bucket in Account-A and Lambda Function in Account-B"
+      Capabilities:
+        - CAPABILITY_NAMED_IAM
+      PermissionModel: SELF_MANAGED
+      StackInstancesGroup:
+        - Regions:
+            - !Ref AWS::Region
+          DeploymentTargets:
+            Accounts:
+              - !Ref AWSAccountB
+      TemplateURL: !Sub 'https://${CodeRepositoryS3Bucket}.s3.amazonaws.com/0018-sunflower/cft/stack-set-templates/lambda-function-stack.yaml'
+
+Outputs:
+  SunflowerS3BucketArn:
+    Description: The Arn of S3 Bucket.
+    Value: !GetAtt SunflowerS3Bucket.Outputs.S3BucketArn
+  SunflowerSNSTopicArn:
+    Description: The Arn of SNS Topic
+    Value: !GetAtt SunflowerSNSTopic.Outputs.SNSTopicArn
+  # SunflowerSNSSubscriptionArn:
+  #   Description: The Arn of SNS Topic
+  #   Value: !GetAtt SunflowerSNSTopic.Outputs.SNSSubscriptionArn
+  SunflowerLambdaFunctionArn:
+    Description: The Arn of the Lambda Function in Account-B
+    Value: !Sub "arn:${AWS::Partition}:lambda:${AWS::Region}:${AWSAccountB}:function:${ProjectName}-${LambdaFunctionBaseName}-${Environment}-${AWS::Region}"

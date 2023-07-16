@@ -1,0 +1,194 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Project Tarius: CFN Template To Create A SNS Topic Encrypted With Customer Managed KMS Key With Email Subscription. 
+
+Metadata:
+  TemplateName: sns-stack.yaml
+  TemplateType: SNS Topic with Access Policy to grant a Lambda in Account-B to be added as subscriber
+  Version: 1.0.0
+  Owner: Subhamay Bhattacharyya
+  ProjectName: Tarius
+  Modification History:
+    - 1.0.0  - Jul 13, 2023   -- Initial Version 
+  StepsToTest: |
+    Manualy verify the Stack.
+  StepsToCleanup: |
+    Stack delete command
+
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+    #################################### Project Name and Environment ##############################
+    - Label: 
+        default: "Project And Environment:"
+      Parameters: 
+        - ProjectName
+        - Environment
+    #################################### AWS Account Id ############################################
+    - Label: 
+        default: "Account-B:"
+      Parameters:
+      - AWSAccountB
+    #################################### KMS Key ###################################################
+    - Label: 
+        default: "KMS Configuration:"
+      Parameters: 
+        - KmsMasterKeyAlias
+    #################################### SNS Topic #################################################
+    - Label: 
+        default: "SNS Configuration:"
+      Parameters: 
+        - SNSTopicBaseName
+        - SNSTopicDisplayName
+        # - SNSSubscriptionLambdaArn
+    #################################### S3 ########################################################
+    - Label: 
+        default: "S3 Configuration:"
+      Parameters: 
+        - S3BucketBaseName
+    ParameterLabels:
+      ################################## Project Name and Environment ##############################
+      ProjectName:
+        default: "The Project Name."
+      Environment:
+        default: "Environment Name."
+      ################################## AWS Account Id ############################################
+      AWSAccountB: 
+        default: "Id of AWS Account-B"
+      ################################## KMS Key ###################################################
+      KmsMasterKeyAlias: 
+        default: "KMS Master Key Alias"
+      ################################## SNS #######################################################
+      SNSTopicBaseName:
+        default: "The SNS Topic Name."
+      SNSTopicDisplayName:
+        default: "The SNS Topic Display Name."
+      ################################## S3 ########################################################
+      S3BucketBaseName:
+        default: "The Base Name of the S3 Bucket"
+Parameters:
+  ###################################### Project Name and Environment ##############################
+  ProjectName:
+    Default: project
+    Description: "The Project Name."
+    Type: String
+    MinLength: 5
+    MaxLength: 30
+    AllowedPattern: "[a-z]*"
+    ConstraintDescription: "The length should be between 5 and 30, must contain only lowercase alphabets."
+  Environment:
+    Default: devl
+    Description: "The Environment Name."
+    Type: String
+    AllowedValues: ["devl", "test", "prod"]
+    ConstraintDescription: "The Environment must be devl / test or prod"
+  ###################################### AWS Account ###############################################
+  AWSAccountB:
+    Default: 508634243190
+    Type: Number
+    Description: The AWS First account where the S3 bucket will be created.
+  ###################################### KMS Key ###################################################
+  KmsMasterKeyAlias:
+    Default: "SB-KMS"
+    Description: "The KMS Master Key Alias To Be Used For Server Side Encryption."
+    Type: String
+    MinLength: 5
+    MaxLength: 20
+    AllowedPattern: "[a-zA-Z0-9-]*"
+    ConstraintDescription: "The length of the KMS Key Alias should be beteen 5 and 20 and can only contain lowercase alphanumeric characters and dash."
+  ###################################### SNS with Email Subscription ###############################
+  SNSTopicBaseName:
+    Default: "sns-topic-name"
+    Description: "The Base Name Of The Sns Topic."
+    Type: String
+    MinLength: 10
+    MaxLength: 40
+    AllowedPattern: "[a-z][a-z0-9-]*"
+    ConstraintDescription: "The length should be between 10 and 40, must contain only lowercase letter, number, dash, dot and should start with a letter."
+  SNSTopicDisplayName:
+    Default: "SNS Topic Name For Sending Notification"
+    Description: "The SNS Topic Display Name."
+    Type: String
+    MinLength: 30
+    MaxLength: 200
+    AllowedPattern: "[a-zA-Z0-9-. _]*"
+    ConstraintDescription: "The length should be between 30 and 200, must alphanumeric character, space, dot dash or underscore."
+  # SNSSubscriptionLambdaArn:
+  #   Default: "arn:aws:lambda:us-east-1:508634243190:function:sunflower-processing-lambda-devl-us-east-1"
+  #   Description: "The Subscription Email For The SNS Topic."
+  #   Type: String
+  #   MinLength: 10
+  #   MaxLength: 100
+  #   # AllowedPattern: "^arn:aws:lambda:[a-z0-9-]:[0-9]:function:[a-zA-Z0-9-]*"
+  #   ConstraintDescription: "The length should be between 10 and 100, must be a valid arn"
+  ###################################### S3 Bucket #################################################
+  S3BucketBaseName:
+    Default: some-s3-bucket-name
+    Description: "The S3 Bucket Base Name For The Source Data, The Region Will Be Added As Suffix By The Template."
+    Type: String
+    MinLength: 3
+    MaxLength: 40
+    AllowedPattern: "[a-z][a-z0-9-.]*"
+    ConstraintDescription: "The length should be between 3 and 40, must contain only lowercase letter,numbers,dash, dot and should start with a letter."
+Resources:
+  ###################################### SNS Topic With Email Subscription #########################
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties: 
+      DisplayName: !Ref SNSTopicDisplayName
+      TopicName: !Sub '${ProjectName}-${SNSTopicBaseName}-${Environment}-${AWS::Region}'
+      KmsMasterKeyId: !Sub 'alias/${KmsMasterKeyAlias}'
+      Tags:
+        - Key: ProjectName
+          Value: !Ref ProjectName
+        - Key:  Environment
+          Value: !Ref Environment
+  SNSTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties: 
+      PolicyDocument: 
+        Id: "__default_policy_ID"
+        Version: '2012-10-17'
+        Statement:
+        - Sid: "__default_statement_ID"
+          Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - SNS:GetTopicAttributes
+          - SNS:SetTopicAttributes
+          - SNS:AddPermission
+          - SNS:RemovePermission
+          - SNS:DeleteTopic
+          - SNS:Subscribe
+          - SNS:ListSubscriptionsByTopic
+          - SNS:Publish
+          - SNS:Receive
+          Resource: !Ref SNSTopic
+          Condition:
+            StringEquals:
+              "AWS:SourceOwner": !Ref 'AWS::AccountId'
+        - Sid: "Allow S3 Event Notification"
+          Effect: Allow
+          Principal:
+            Service: "s3.amazonaws.com"
+          Action:
+          - SNS:Publish
+          Resource: !Ref SNSTopic
+          Condition:
+            ArnLike:
+              "AWS:SourceArn": !Sub "arn:${AWS::Partition}:s3:::${ProjectName}-${S3BucketBaseName}-${AWS::AccountId}-${Environment}-${AWS::Region}"
+        - Sid: "Allow Cross Account Lambda Subscription"
+          Effect: Allow
+          Principal: 
+            AWS: !Sub "arn:${AWS::Partition}:iam::${AWSAccountB}:root"
+          Action: 
+          - SNS:Subscribe
+          - SNS:ListSubscriptionsByTopic
+          Resource: !Ref SNSTopic
+      Topics: 
+        - !Ref SNSTopic
+
+Outputs:
+  SNSTopicArn:
+    Description: The Arn of the SNS Topic.
+    Value: !Ref SNSTopic
